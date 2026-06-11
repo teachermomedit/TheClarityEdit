@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="The Clarity Edit"/>
+<meta name="theme-color" content="#FAF7F2"/>
+<title>The Clarity Edit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#FAF7F2;font-family:'Jost',sans-serif;color:#3A3530;min-height:100vh;overflow-x:hidden;}
+textarea,button,input{font-family:'Jost',sans-serif;}
+.serif{font-family:'Cormorant Garamond',serif;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:#FAF7F2;}
+::-webkit-scrollbar-thumb{background:#D4C4B0;border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>window.ANTHROPIC_API_KEY = "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";</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const API_KEY = window.ANTHROPIC_API_KEY;
+
+// ── BRAND COLORS ─────────────────────────────────────────────────
+const C = {
+  cream:   "#FAF7F2",
+  oat:     "#F2EDE4",
+  terra:   "#C4775A",
+  terraLt: "#E8C4B0",
+  terraXl: "#F5E6DC",
+  sage:    "#8FA68A",
+  sageLt:  "#C8D8C5",
+  char:    "#3A3530",
+  mid:     "#7A6E65",
+  light:   "#B8AEA5",
+  white:   "#FFFFFF",
+  gold:    "#C9A84C",
+};
+
+// ── CURRICULUM: week-by-week progression ─────────────────────────
+const CURRICULUM = {
+  1: { label:"Foundation", theme:"Building your baseline", focus:"Identify your patterns — hedging, trailing off, filler words", difficulty:1 },
+  2: { label:"Awareness", theme:"Hearing yourself clearly", focus:"Recognize your strongest moments and weakest habits", difficulty:2 },
+  3: { label:"Structure", theme:"Organizing your thoughts", focus:"STAR framework — Situation, Task, Action, Result", difficulty:2 },
+  4: { label:"Commitment", theme:"Taking a stand", focus:"Decision language — commit without over-qualifying", difficulty:3 },
+  5: { label:"Vocabulary", theme:"Expanding your range", focus:"Using precise words naturally, not forcing them", difficulty:3 },
+  6: { label:"Confidence", theme:"Owning your expertise", focus:"Opening strong — first sentence sets the tone for everything", difficulty:4 },
+  7: { label:"Fluency",    theme:"Connecting it all", focus:"Full sentences, full thoughts, no trailing off", difficulty:4 },
+  8: { label:"Mastery",    theme:"Performing under pressure", focus:"Timed responses, harder prompts, professional scenarios", difficulty:5 },
+};
+
+// ── PHASE DEFINITIONS ────────────────────────────────────────────
+const PHASES = [
+  { id:"lesson",  label:"Today's Lesson",  duration:0,   type:"lesson",    color:C.sage,   icon:"📖", instruction:"Read and absorb. This is your 2-minute teaching moment before you practice." },
+  { id:"warmup",  label:"Vocab Warm-Up",   duration:60,  type:"vocab",     color:C.terra,  icon:"🔥", instruction:"Read the word. Study it. Then use Teach Me if you want a deeper breakdown before you try." },
+  { id:"casual",  label:"Casual Flow",     duration:90,  type:"prompt",    color:"#8B7355", icon:"💬", instruction:"Speak freely. Don't self-edit. Just talk like you're telling a friend." },
+  { id:"vocab",   label:"Vocab Check",     duration:75,  type:"vocab",     color:C.terra,  icon:"📚", instruction:"Use this word naturally. Then tap Check — Claude tells you if you got it right." },
+  { id:"decision",label:"Decision Drill",  duration:120, type:"decision",  color:C.sage,   icon:"⚖️", instruction:"Think out loud. Consider both sides. Commit clearly — no 'maybe' or 'I guess'." },
+  { id:"emotion", label:"Parent Moment",   duration:90,  type:"emotion",   color:C.gold,   icon:"🧘", instruction:"Say your response out loud as if your child is right there. Claude will coach you on whether it regulates or escalates." },
+  { id:"pro",     label:"Pro Speak",       duration:90,  type:"prompt",    color:"#5A7A8F", icon:"💼", instruction:"Answer clearly and confidently — like you're speaking to a principal, a client, or an interviewer." },
+  { id:"story",   label:"Story Mode",      duration:60,  type:"prompt",    color:"#8F5A7A", icon:"✨", instruction:"Beginning. Middle. End. Don't trail off. Land it." },
+];
+
+// ── WEEKLY ASSESSMENT PROMPTS (same every week for comparison) ───
+const ASSESSMENT_PROMPTS = [
+  { id:"A1", label:"Professional intro",   prompt:"Introduce yourself and what you do — as if meeting a new colleague for the first time." },
+  { id:"A2", label:"Decision",             prompt:"You have one free hour today. Do you rest, work on your business, or spend it with your kids? Commit to one and explain why." },
+  { id:"A3", label:"Expertise",            prompt:"Explain one thing you know more about than most people — from your teaching background or your life as a mom." },
+  { id:"A4", label:"Story",                prompt:"Tell me about a hard moment from the past month and how you handled it. Beginning, middle, end." },
+  { id:"A5", label:"Opinion",              prompt:"What's one thing about parenting advice online that you genuinely disagree with? Say it clearly and defend it." },
+];
+
+// ── VOCAB BANK ───────────────────────────────────────────────────
+const VOCAB = {
+  1: [ // Foundation week — common, approachable
+    { word:"Deliberate",  def:"done intentionally and carefully, not by accident", example:"She was deliberate about every word she chose in the meeting.", teach:"Think of a surgeon — every cut is deliberate. In speech, it means slowing down and choosing your words on purpose rather than filling silence with whatever comes out first." },
+    { word:"Concise",     def:"giving a lot of information clearly in very few words", example:"Her concise answer impressed everyone — two sentences, no filler.", teach:"The opposite of rambling. Concise speakers trust their point to land without repeating it three times. Think 'sharp and done' rather than 'long and thorough'." },
+    { word:"Intentional", def:"done on purpose with a clear goal in mind", example:"Intentional parenting means choosing your words the way you'd plan a lesson.", teach:"Intentional is about direction. When you're intentional, you know WHY you're doing something before you do it. Use it when describing choices that were made with purpose, not habit." },
+    { word:"Assertive",   def:"stating your needs or opinions confidently without apology", example:"She assertively declined the extra project — no hedging, no over-explaining.", teach:"Assertive sits between passive (saying nothing) and aggressive (forcing your view). It means you speak up AND respect others. A classic assertive opener: 'I'd like to share something I've noticed...' — confident, not combative." },
+  ],
+  2: [ // Awareness week
+    { word:"Nuanced",     def:"showing awareness of subtle differences — not black and white", example:"Her nuanced understanding of language development shaped everything she taught.", teach:"When something is nuanced, it means it can't be summed up simply. Use it when you want to signal that you understand the complexity of something. 'That's a nuanced issue' is stronger than 'it's complicated'." },
+    { word:"Attuned",     def:"aware of and responsive to someone's emotional state", example:"A great teacher is attuned to which students are struggling before they say a word.", teach:"Attuned comes from music — being in tune with someone. It goes deeper than 'paying attention' because it implies emotional awareness, not just observation. Perfect for describing your coaching and parenting instincts." },
+    { word:"Candid",      def:"truthful and straightforward — honest without being harsh", example:"She gave candid feedback that the teacher actually received well.", teach:"Candid is honest but kind. It's different from blunt (which can be harsh) or diplomatic (which can be vague). When you're candid, people trust what you say because you're not softening the truth into uselessness." },
+    { word:"Resilient",   def:"able to recover quickly and keep going after difficulty", example:"Raising two kids under three while building a business is the definition of resilient.", teach:"Resilient isn't about being tough or unaffected — it's about the bounce-back. You can feel the hit AND recover. This word is powerful because it validates the hardship AND the strength at the same time." },
+  ],
+  3: [ // Structure week
+    { word:"Articulate",  def:"able to express thoughts clearly and effectively", example:"She articulated her coaching philosophy so clearly that every teacher nodded.", teach:"Articulate is both an adjective (she's articulate) and a verb (she articulated her point). As a verb it's especially powerful — it implies deliberate, clear expression. Use 'I want to articulate something important' before a key point to signal you're about to say something worth hearing." },
+    { word:"Coherent",    def:"logical and consistent — easy to follow and understand", example:"A coherent argument has a clear thread from beginning to end.", teach:"Coherent is what your speaking becomes when you use structure. If someone says 'I'm not sure I followed that' — the issue was coherence. Think of it as the invisible thread that connects your ideas. STAR framework creates coherence." },
+    { word:"Scaffolding", def:"structured support that helps someone grow independently", example:"Good scaffolding gives just enough help — then steps back so the child takes over.", teach:"This is YOUR word — you use it every day as an educator. Now start using it in business and parenting conversations. 'What scaffolding does your child need right now?' immediately signals expertise." },
+    { word:"Sequential",  def:"following a logical order — one thing leading to the next", example:"Sequential thinking is what separates a rambling answer from a clear one.", teach:"When your speaking is sequential, each sentence leads naturally to the next. You can build this by thinking 'first... then... finally' before you speak, even if you don't say those words out loud." },
+  ],
+  4: [ // Commitment week
+    { word:"Conviction",  def:"speaking from a deeply held belief with full confidence", example:"When you speak with conviction, people don't just hear your words — they feel them.", teach:"Conviction changes your vocal tone physically — it's the difference between 'I think maybe we should...' and 'Here's what I believe we need to do.' You don't need to be certain to have conviction. You just need to commit to your position while you hold it." },
+    { word:"Decisive",    def:"able to make choices quickly and clearly without over-thinking", example:"A decisive leader doesn't wait for perfect information — she commits and adjusts.", teach:"Decisive doesn't mean impulsive. It means you've thought enough and you're moving. The opposite of decisive in speech sounds like: 'I mean, I guess, maybe, sort of, kind of...' Decisive sounds like: 'Here's my thinking. I'm going with option B.'" },
+    { word:"Unequivocal", def:"leaving no doubt — completely clear and direct", example:"Her answer was unequivocal: the boundary was not negotiable.", teach:"Unequivocal is a power word. Use it sparingly for moments when you want zero ambiguity. 'I am unequivocally committed to this' is far stronger than 'I'm really committed to this.' Save it for the moments that deserve it." },
+    { word:"Pragmatic",   def:"focused on practical real-world solutions over theory", example:"A pragmatic coach doesn't just share ideas — she shows exactly what to do next.", teach:"Pragmatic people are valued in every room because they cut through the abstract. Use it to describe your approach: 'I take a pragmatic approach to language learning — here's what actually works in the classroom.'" },
+  ],
+  5: [ // Vocabulary week
+    { word:"Eloquent",    def:"fluent, clear, and genuinely moving in speech", example:"You don't need perfect grammar to be eloquent — you need real conviction.", teach:"Eloquence isn't about big words — it's about the right words at the right moment. Ironically, the most eloquent speakers often use simple language because they choose words that land emotionally, not just intellectually." },
+    { word:"Succinct",    def:"brief, clear, and powerful — no rambling or filler", example:"The most memorable speakers are succinct. They trust their point to land.", teach:"Succinct is the goal. Every time you find yourself repeating a point, adding 'you know?', or explaining what you just explained — you've lost succinctness. Practice ending sentences and then stopping. Full stop. Done." },
+    { word:"Vernacular",  def:"the language or expressions used naturally by a particular group", example:"She translated the educational research into the vernacular of tired moms.", teach:"Vernacular is about meeting your audience where they are. As an educator you translate ALL the time — from academic language to parent language. Naming that skill with this word elevates it from a soft skill to a professional competency." },
+    { word:"Lucid",       def:"expressed clearly and easy to understand", example:"Her explanation was lucid — even the most confused parent understood.", teach:"Lucid comes from the Latin for light. Think of it as bringing light to a dark room. When your speaking is lucid, there's nothing to interpret or decode. It's a higher compliment than 'clear' because it implies both clarity AND intelligence." },
+  ],
+  6: [ // Confidence week
+    { word:"Credibility", def:"the quality of being trusted and believed by others", example:"Your credibility doesn't come from a title — it comes from your lived experience.", teach:"Credibility is earned and signalled. You signal it through specific details ('In my eight years of classroom observation...'), through not over-claiming, and through acknowledging complexity rather than oversimplifying. Interestingly, admitting uncertainty in one area increases your credibility in others." },
+    { word:"Poise",       def:"calm, graceful self-assurance even under pressure", example:"She walked into the room with such poise that people leaned in before she spoke.", teach:"Poise is what fills the silence between your words. It's the pause before you answer. The deep breath before the hard conversation. Poised speakers don't rush to fill silence — they know that the pause itself signals confidence." },
+    { word:"Authoritative",def:"commanding respect because of knowledge and confidence", example:"She spoke in an authoritative tone that came from years of classroom experience.", teach:"Authoritative is different from authoritarian (which is controlling). Authoritative means your expertise is felt, not performed. You get there by specificity: vague statements sound uncertain, specific statements sound authoritative. 'Kids struggle with reading' vs 'Children who skip connector words lose comprehension within two paragraphs.'" },
+    { word:"Compelling",  def:"evoking interest, attention, or admiration — hard to ignore", example:"Her story was so compelling that the room went completely quiet.", teach:"Compelling content creates a pull — the listener wants to keep listening. You create it through stakes (why does this matter?), specificity (concrete details), and surprise (something they didn't expect to hear). Every story you tell should answer: why should she care about this right now?" },
+  ],
+  7: [ // Fluency week
+    { word:"Fluent",      def:"able to express yourself easily and accurately", example:"Fluent doesn't mean perfect — it means your ideas flow without friction.", teach:"In speech, fluency isn't about speed. It's about smoothness. A fluent speaker might speak slowly but without the 'um', the restart, the trailing off. Fluency is built through daily repetition of exactly what this app asks you to do." },
+    { word:"Cadence",     def:"the rhythm and flow of your speaking — the music of your words", example:"Her cadence was so natural that the audience relaxed without knowing why.", teach:"Cadence is what separates monotone from engaging. Vary your pace — slow down for important points, speed up for momentum. Pause before key words. Your cadence tells the listener what to pay attention to before they've even processed the words." },
+    { word:"Resonant",    def:"having a lasting effect — producing a strong emotional response", example:"The most resonant feedback she ever gave was three words: I see you.", teach:"Resonant words linger. They're the lines people repeat to others. To create resonance, strip away the unnecessary and leave only what's true and specific. The fewer words, the more each one echoes." },
+    { word:"Inflection",  def:"the rise and fall of your voice to convey meaning and emotion", example:"Her inflection communicated warmth even before her words landed.", teach:"In English, rising inflection at the end of a sentence signals a question or uncertainty. Falling inflection signals confidence and conclusion. Many people — especially under pressure — use rising inflection on statements, making them sound uncertain even when they're not. Notice yours." },
+  ],
+  8: [ // Mastery week
+    { word:"Gravitas",    def:"a serious and dignified manner that commands respect", example:"She entered the conversation with gravitas — people listened differently.", teach:"Gravitas can't be performed — it comes from truly believing what you're saying and letting that belief slow you down. Fast talking signals anxiety. Gravitas speakers pause, look people in the eye, and say less than they could. The restraint is the power." },
+    { word:"Incisive",    def:"intelligently analytical and clear-thinking — cutting right to the point", example:"Her incisive feedback saved the team two weeks of work.", teach:"Incisive thinkers identify the one thing that changes everything. In a meeting, it's the question no one else asked. In a conversation, it's naming what's really happening underneath the surface. Your coaching background makes you naturally incisive — now name it that way." },
+    { word:"Measured",    def:"carefully considered and restrained — calm and deliberate", example:"Her measured response to the criticism disarmed everyone in the room.", teach:"Measured is what you become when you stop reacting and start responding. The gap between stimulus and response is where measured lives. When someone says something that lands badly, a measured person takes one breath, processes, then speaks. That pause is not weakness — it's intelligence." },
+    { word:"Cogent",      def:"clear, logical, and convincing — hard to argue with", example:"Her cogent argument left no room for misunderstanding.", teach:"Cogent is articulate + logical + persuasive all at once. A cogent point has evidence, structure, and delivery. It's the word to use when you want to say someone made a brilliant argument without gushing. 'That's a cogent point' is one of the highest compliments in a professional room." },
+  ],
+};
+
+// ── PROMPTS ──────────────────────────────────────────────────────
+const PROMPTS = {
+  casual: [
+    "What's something one of your kids did this week that genuinely surprised you?",
+    "Describe your real morning routine — not the ideal one, the actual one.",
+    "What does a truly good day as a mom look and feel like for you?",
+    "Talk about a moment this week where you felt completely present with your kids.",
+    "What's something you've let go of since becoming a mom that you honestly don't miss?",
+    "What's something you wish other moms knew about your life right now?",
+    "Talk about a meal you made recently — what was happening around the table?",
+    "What's a habit you've built lately that you're genuinely proud of?",
+    "Talk about something you used to doubt about yourself that you now actually believe.",
+    "What does taking care of yourself actually look like in your life right now?",
+  ],
+  pro: [
+    "Describe what makes you different as an instructional coach — speak as if you're telling a new principal.",
+    "How would you explain your approach to ESL learners to a parent who is nervous about their child?",
+    "Tell me about a time your coaching genuinely changed how a teacher taught. What exactly did you do?",
+    "How do you build trust with a teacher who is resistant to being coached?",
+    "What does truly good language instruction look like? Walk me through your philosophy.",
+    "How would you explain The Clarity Edit to someone hearing about it for the first time?",
+    "Describe your vision for your brands in 60 seconds — as if pitching to a potential collaborator.",
+    "How do you balance being a mom, a business owner, and someone still growing? Be honest.",
+    "How do you prioritize when everything feels urgent and your kids need you at the same time?",
+    "What's one thing you know about child development that most parents don't — and how does it change your parenting?",
+  ],
+  story: [
+    "Tell the story of what your parents taught you about work and money — and how it shaped who you are.",
+    "Describe the moment you knew teaching was the right path for you.",
+    "Tell a story about a student who changed how you saw your work.",
+    "Tell the story of why you started building a business during mat leave.",
+    "Describe a moment of pure joy with your kids that you never want to forget.",
+    "Tell a story about a time you doubted yourself and pushed through anyway.",
+    "Describe a version of yourself from five years ago — what would you tell her?",
+    "Tell a story about a time you said exactly the right thing at exactly the right moment.",
+  ],
+  decision: [
+    "You have $500 to invest in your business. Ads, content creation, or professional photos? Commit to one and defend it.",
+    "You can launch one digital product this month. Which one and why? Name it and commit.",
+    "A local business wants to partner with you but their values feel slightly off. Do you take the meeting? Walk through your thinking and commit.",
+    "You have 3 focused hours today. Content, website, or product development? Pick one. No hedging.",
+    "You can wake up at 5:30 AM for 90 minutes of work or sleep until 7. Which serves you better right now?",
+    "You finished a week where you hit none of your goals. Rest, reset, or push harder? Walk through your reasoning.",
+    "Someone criticizes your business publicly online. Respond, ignore, or address privately? Own the call.",
+    "You feel like you're spreading too thin. What's the first thing you cut and why?",
+    "A friend wants to collaborate on a project. You love her but worry about mixing friendship and business. What do you decide?",
+    "You're offered a contract coaching role 2 days a week during mat leave. Do you take it?",
+  ],
+  emotion: [
+    { s:"Your 3-year-old throws a full tantrum in a grocery store because you said no to a snack.", g:"Stay calm, validate the feeling, hold the boundary." },
+    { s:"Your toddler hits their little sibling. You're exhausted and it's only 9 AM.", g:"Address the behaviour without shaming. Give them language for next time." },
+    { s:"Your child is crying after scraping their knee. They want you to fix it but it's minor.", g:"Acknowledge the pain, comfort without overdramatizing, build resilience." },
+    { s:"Your child keeps asking 'why can't I have that toy?' over and over in the store.", g:"Give a real answer a 3-year-old can actually understand — not just 'because I said so'." },
+    { s:"Your child refuses to get dressed. You're running late. The power struggle is starting.", g:"Offer controlled choices so they feel autonomous. Redirect without a fight." },
+    { s:"Your child wakes up scared of monsters. They want to sleep in your bed.", g:"Validate the fear, offer comfort, gently keep the boundary around sleep." },
+    { s:"Your child asks 'why do you work so much?' You weren't expecting it.", g:"Answer honestly at their level. Help them feel secure, not guilty." },
+    { s:"Your child says 'I hate you' for the first time. You weren't ready for it.", g:"Stay grounded. Respond to what's underneath the words, not the words themselves." },
+    { s:"Your child is devastated because a friend didn't want to play with them today.", g:"Hold the feeling without fixing it. Let them feel sad without rushing past it." },
+    { s:"Your 3-year-old hits you when frustrated. They can't find the words yet.", g:"Stay regulated yourself. Respond, don't react. Teach them what to say instead." },
+  ],
+};
+
+// ── LESSON CONTENT by week ────────────────────────────────────────
+const LESSONS = {
+  1: { title:"Finding your baseline", body:"Before you can improve, you need to hear yourself. This week's focus is awareness — not perfection. You're going to notice your patterns: when you hedge ('I think maybe...'), when you trail off, when you fill silence with 'um' or 'like'. The goal isn't to fix them yet. It's to catch them. Every session this week, your only job is to try and notice one moment where you could have been sharper. That noticing IS the work.", tip:"Before each response today, take one breath and say your first word confidently. Just the first word. Everything after will follow." },
+  2: { title:"Hearing yourself clearly", body:"This week you start identifying your strongest moments — not just your weakest ones. When did you sound most like yourself? When did your voice carry weight? Confidence in speech is built by replicating your best moments, not by eliminating your worst ones. You already have the capability. The app is helping you find it consistently.", tip:"After each phase today, ask yourself: was there one sentence in there that felt right? Hold onto that feeling. That's the version of you we're training toward." },
+  3: { title:"The STAR structure", body:"Today you're learning the single most powerful speaking structure for adults: STAR. Situation (set the scene briefly), Task (what was your role or challenge), Action (what YOU specifically did), Result (what happened). Every story, every professional answer, every time you need to explain something complex — STAR organizes it. You don't say the letters out loud. You just build your answer in that shape.", tip:"For your Pro Speak and Story phases today, try building your answer in STAR order before you speak. Even 5 seconds of mental organizing changes everything." },
+  4: { title:"Taking a stand", body:"This week is about commitment. The biggest gap in most people's speaking isn't vocabulary or structure — it's the unwillingness to commit. 'I think maybe we could perhaps consider...' is seven words that say nothing. 'Here's what I recommend' is four words that say everything. You can be wrong. You can change your mind later. But right now, in this moment, commit.", tip:"For your Decision Drill today, say your answer in the first sentence. Not at the end after you've thought out loud for 90 seconds — at the start. Lead with your call. Then explain it." },
+  5: { title:"Using words with precision", body:"Vocabulary isn't about using big words — it's about using the right word. The right word does three jobs at once: it's precise (means exactly what you need), it's natural (sounds like you, not a thesaurus), and it's memorable (the listener holds onto it). This week, don't force the vocabulary words. Experiment with them. If a word feels wrong in your mouth, it'll sound wrong to your listener.", tip:"Before your vocab phases today, say the word out loud three times on its own. Hear how it sounds. Then use it once in a sentence about your own life before you use it in the prompt." },
+  6: { title:"Opening strong", body:"Research on first impressions in speech shows that your first sentence sets the tone for everything that follows. A weak opener — 'Um, so I guess what I'm trying to say is...' — makes your listener lean back. A strong opener — 'Here's what I know about this' — makes them lean forward. You have three seconds. Use them. This week every phase starts with a confident first sentence before anything else.", tip:"Your strong opener formula: [State your position or key point] + [then explain]. Not the other way around. Lead with the point, follow with the reasoning." },
+  7: { title:"Completing your thoughts", body:"Fluency isn't speed — it's smoothness. The biggest fluency killer isn't filler words, it's unfinished thoughts. When you start a sentence and drift, your listener does mental work trying to complete it for you. That mental work is uncomfortable. It signals uncertainty. This week: finish every sentence. Land every thought. If you lose the thread, pause, restart, and land it clean.", tip:"Today, if you feel yourself trailing off, stop. Take a breath. Say 'Let me say that more clearly.' Then finish the thought. Starting over is not a failure — it's a skill." },
+  8: { title:"Performing under pressure", body:"This is mastery week. Everything you've been building — structure, vocabulary, commitment, confidence, fluency — now gets tested under slightly harder conditions. Prompts are more complex. Topics are more professional. The AI feedback will be more demanding. This is intentional. You perform in your real life under pressure. Your practice should match that.", tip:"Today, before each phase, remind yourself of one thing you've genuinely improved since week one. Confidence in your growth is itself a skill. You've earned this week." },
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function getRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function getWeek(sessions){ return Math.min(8, Math.floor(sessions/5)+1); }
+function getDayInWeek(sessions){ return (sessions%5)+1; }
+
+function getVocabForWeek(week){
+  return VOCAB[week] || VOCAB[1];
+}
+
+function buildPrompt(phase, week){
+  const vocab = getVocabForWeek(week);
+  if(phase.type==="vocab")     return getRandom(vocab);
+  if(phase.type==="decision")  return getRandom(PROMPTS.decision);
+  if(phase.type==="emotion")   return getRandom(PROMPTS.emotion);
+  if(phase.type==="lesson")    return LESSONS[week] || LESSONS[1];
+  if(phase.id==="casual")      return getRandom(PROMPTS.casual);
+  if(phase.id==="pro")         return getRandom(PROMPTS.pro);
+  if(phase.id==="story")       return getRandom(PROMPTS.story);
+  return "";
+}
+
+async function callClaude(system, userMsg){
+  const res = await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:900, system, messages:[{role:"user",content:userMsg}] })
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(`${res.status}: ${t.slice(0,150)}`); }
+  const data=await res.json();
+  return data.content?.find(b=>b.type==="text")?.text||"";
+}
+
+// ── CIRCULAR TIMER ───────────────────────────────────────────────
+function Timer({timeLeft,total,color}){
+  const r=52,circ=2*Math.PI*r,offset=circ*(1-timeLeft/total);
+  return(
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r={r} fill="none" stroke={C.oat} strokeWidth="8"/>
+      <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="8"
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        transform="rotate(-90 60 60)" style={{transition:"stroke-dashoffset 1s linear"}}/>
+      <text x="60" y="56" textAnchor="middle" fill={C.char} fontSize="20" fontWeight="700" fontFamily="'Jost',sans-serif">
+        {String(Math.floor(timeLeft/60)).padStart(2,"0")}:{String(timeLeft%60).padStart(2,"0")}
+      </text>
+      <text x="60" y="72" textAnchor="middle" fill={C.light} fontSize="10" fontFamily="'Jost',sans-serif">left</text>
+    </svg>
+  );
+}
+
+// ── SCORE RING ───────────────────────────────────────────────────
+function Ring({score,color,label,size=72}){
+  const r=(size/2)-7,circ=2*Math.PI*r,offset=circ*(1-score/100);
+  return(
+    <div style={{textAlign:"center"}}>
+      <svg width={size} height={size}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.oat} strokeWidth="6"/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="6"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          transform={`rotate(-90 ${size/2} ${size/2})`} style={{transition:"stroke-dashoffset 1s ease"}}/>
+        <text x={size/2} y={size/2+5} textAnchor="middle" fill={C.char} fontSize="16" fontWeight="700" fontFamily="'Jost',sans-serif">{score}</text>
+      </svg>
+      <div style={{color:C.mid,fontSize:10,fontWeight:600,marginTop:2,textTransform:"uppercase",letterSpacing:0.5}}>{label}</div>
+    </div>
+  );
+}
+
+// ── INLINE FEEDBACK ──────────────────────────────────────────────
+function InlineFb({text,color}){
+  if(!text) return null;
+  return(
+    <div style={{background:C.oat,border:`1px solid ${color}`,borderRadius:12,padding:"14px 16px",marginTop:10}}>
+      <div style={{color,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Coach Feedback</div>
+      <div style={{color:C.char,fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{text}</div>
+    </div>
+  );
+}
+
+// ── MAIN APP ─────────────────────────────────────────────────────
+export default function App(){
+  const [screen,setScreen]         = useState("home");
+  const [phaseIndex,setPhaseIndex] = useState(0);
+  const [timeLeft,setTimeLeft]     = useState(0);
+  const [running,setRunning]       = useState(false);
+  const [response,setResponse]     = useState("");
+  const [responses,setResponses]   = useState([]);
+  const [currentPrompt,setCurrentPrompt] = useState(null);
+  const [sessionPhases,setSessionPhases] = useState([]);
+  const [feedback,setFeedback]     = useState("");
+  const [loadingFb,setLoadingFb]   = useState(false);
+  const [inlineFb,setInlineFb]     = useState("");
+  const [loadingInline,setLoadingInline] = useState(false);
+  const [inlineDone,setInlineDone] = useState(false);
+  const [teachMe,setTeachMe]       = useState(false);
+  const [scores,setScores]         = useState({opener:0,hedges:0,completion:0,vocabulary:0,commitment:0});
+  const [sessions,setSessions]     = useState(()=>{try{return JSON.parse(localStorage.getItem("ce_sessions")||"[]")}catch{return []}});
+  const [streak,setStreak]         = useState(()=>parseInt(localStorage.getItem("ce_streak")||"0"));
+  const [lastDate,setLastDate]     = useState(()=>localStorage.getItem("ce_lastDate")||"");
+  const [showAssessment,setShowAssessment] = useState(false);
+  const [assessmentResponses,setAssessmentResponses] = useState({});
+  const [assessmentFb,setAssessmentFb] = useState("");
+  const [loadingAssessment,setLoadingAssessment] = useState(false);
+  const [diagnostic,setDiagnostic] = useState(()=>{try{return JSON.parse(localStorage.getItem("ce_diagnostic")||"null")}catch{return null}});
+  const timerRef = useRef(null);
+
+  const week     = getWeek(sessions.length);
+  const dayInWk  = getDayInWeek(sessions.length);
+  const curriculum = CURRICULUM[week]||CURRICULUM[1];
+  const isAssessmentDay = dayInWk===5; // Every 5th session = assessment
+  const isDiagnosticDue = sessions.length===5 && !diagnostic;
+
+  const currentPhase = sessionPhases[phaseIndex]||PHASES[0];
+
+  // ── Timer ──
+  useEffect(()=>{
+    if(!running) return;
+    timerRef.current=setInterval(()=>{
+      setTimeLeft(t=>{ if(t<=1){clearInterval(timerRef.current);setRunning(false);return 0;} return t-1; });
+    },1000);
+    return ()=>clearInterval(timerRef.current);
+  },[running]);
+
+  function startSession(){
+    const phases = PHASES.map(p=>({...p,prompt:buildPrompt(p,week)}));
+    setSessionPhases(phases);
+    setPhaseIndex(0);
+    setTimeLeft(PHASES[0].duration||0);
+    setResponse(""); setResponses([]); setFeedback("");
+    setInlineFb(""); setInlineDone(false); setTeachMe(false);
+    setScreen("session"); setRunning(false);
+    setCurrentPrompt(phases[0].prompt);
+  }
+
+  async function checkVocab(){
+    if(!response.trim()||loadingInline) return;
+    setLoadingInline(true); setInlineFb("");
+    const w=currentPhase.prompt;
+    try{
+      const fb=await callClaude(
+        `You are a vocabulary coach. Warm and direct. Under 120 words. Three lines only:
+LINE 1: Did they use "${w?.word}" correctly? Yes/partially/no and one sentence why.
+LINE 2: Did it sound natural or forced? One honest sentence.
+LINE 3: Start with "Try: " — show a stronger version of their sentence.`,
+        `Word: "${w?.word}" — ${w?.def}\nTheir response: "${response}"`
+      );
+      setInlineFb(fb);
+    }catch(e){setInlineFb(`Couldn't check: ${e.message}`);}
+    setLoadingInline(false); setInlineDone(true);
+  }
+
+  async function checkEmotion(){
+    if(!response.trim()||loadingInline) return;
+    setLoadingInline(true); setInlineFb("");
+    const sc=currentPhase.prompt;
+    try{
+      const fb=await callClaude(
+        `You are a child development and emotional regulation coach for Stephanie — a K-8 ESL instructional coach and mom of two (ages 1 and 3). She is practicing parenting responses before they happen.
+
+Three short paragraphs:
+1. REGULATE or ESCALATE? Be specific about why her response would regulate or escalate her child's nervous system.
+2. What was the strongest thing she said — the part that was warm, clear, or boundaried?
+3. Give ONE alternative opening line that is both firm AND emotionally attuned — real mom language, not textbook.
+
+Under 160 words. Direct and warm.`,
+        `Situation: ${sc?.s}\nGoal: ${sc?.g}\nHer response: "${response}"`
+      );
+      setInlineFb(fb);
+    }catch(e){setInlineFb(`Couldn't check: ${e.message}`);}
+    setLoadingInline(false); setInlineDone(true);
+  }
+
+  function advancePhase(){
+    clearInterval(timerRef.current); setRunning(false);
+    const newR=[...responses,{phase:currentPhase,text:response,inline:inlineFb}];
+    setResponses(newR);
+    setResponse(""); setInlineFb(""); setInlineDone(false); setTeachMe(false);
+    if(phaseIndex<PHASES.length-1){
+      const next=phaseIndex+1;
+      setPhaseIndex(next);
+      setTimeLeft(sessionPhases[next]?.duration||0);
+      setCurrentPrompt(sessionPhases[next]?.prompt);
+    } else {
+      finishSession(newR);
+    }
+  }
+
+  async function finishSession(allR){
+    setScreen("feedback"); setLoadingFb(true); setFeedback("");
+    const today=new Date().toDateString();
+    let ns=streak;
+    if(lastDate!==today){ns=streak+1;setStreak(ns);setLastDate(today);localStorage.setItem("ce_streak",ns);localStorage.setItem("ce_lastDate",today);}
+
+    const summary=allR.map(r=>{
+      const p=r.phase;
+      const pr=p.type==="vocab"?`Word: ${p.prompt?.word}`:p.type==="emotion"?`Situation: ${p.prompt?.s}`:p.type==="lesson"?`Lesson: ${p.prompt?.title}`:`Prompt: ${p.prompt}`;
+      return `[${p.label}] ${pr}\nResponse: ${r.text||(p.type==="lesson"?"(lesson read)":"blank")}\n${r.inline?`Inline fb: ${r.inline}`:""}`;
+    }).join("\n\n");
+
+    try{
+      const text=await callClaude(
+        `You are a structured speaking coach for Stephanie — a Chinese-Vietnamese Canadian mom of two (ages 1 and 3), K-8 ESL instructional coach on mat leave, entrepreneur building The Clarity Edit. Smart and capable but loses her train of thought, hedges under pressure, undersells her expertise. She is in Week ${week} of her curriculum (focus: ${curriculum.theme}).
+
+Score her session on FIVE dimensions (0-20 each, total 100):
+OPENER STRENGTH — did her first sentence land with confidence or did she warm up slowly?
+HEDGE COUNT — how many times did she say "I think maybe/kind of/I guess/sort of"? Fewer = higher score.
+COMPLETION — did she finish her thoughts or trail off?
+VOCABULARY RANGE — did she use precise varied words or default to basics?
+COMMITMENT — did she take clear stands or stay wishy-washy?
+
+Format your response EXACTLY like this:
+SCORES: opener=[0-20] hedges=[0-20] completion=[0-20] vocabulary=[0-20] commitment=[0-20]
+
+🌟 WHAT LANDED — one specific moment she sounded expert or confident, name it exactly
+⚠️ PUSH HERE — her #1 pattern this session, show a stronger version of one sentence she actually wrote
+🧘 PARENT MOMENT — was her emotion response regulating or escalating? What made the difference?
+📈 THIS WEEK — one specific note tied to Week ${week} focus: ${curriculum.focus}
+💡 PHRASE TO OWN — one confident natural sentence she can say in real life this week
+
+Under 320 words. Warm but honest. Zero filler.`,
+        `Week ${week}, Day ${dayInWk}. Sessions completed: ${sessions.length}.\n\n${summary}\n\nScore and coach me.`
+      );
+
+      // Parse scores from response
+      const scoreMatch = text.match(/SCORES:\s*opener=(\d+)\s*hedges=(\d+)\s*completion=(\d+)\s*vocabulary=(\d+)\s*commitment=(\d+)/);
+      const parsedScores = scoreMatch ? {
+        opener:     parseInt(scoreMatch[1]),
+        hedges:     parseInt(scoreMatch[2]),
+        completion: parseInt(scoreMatch[3]),
+        vocabulary: parseInt(scoreMatch[4]),
+        commitment: parseInt(scoreMatch[5]),
+      } : {opener:12,hedges:12,completion:12,vocabulary:12,commitment:12};
+      setScores(parsedScores);
+
+      const cleanText = text.replace(/SCORES:[^\n]+\n?/,"").trim();
+      setFeedback(cleanText);
+
+      // Extract phrase to own
+      const phraseMatch = cleanText.match(/💡[^\n]*\n([^\n]+)/);
+      const phrase = phraseMatch?.[1]?.trim()||"";
+
+      const sessionData={
+        id:Date.now().toString(),
+        date:new Date().toLocaleDateString("en-CA"),
+        week, dayInWk, streak:ns,
+        scores:parsedScores,
+        total:Object.values(parsedScores).reduce((a,b)=>a+b,0),
+        summary:cleanText.slice(0,200),
+        phraseToOwn:phrase,
+      };
+      const updated=[...sessions,sessionData].slice(-90);
+      setSessions(updated);
+      localStorage.setItem("ce_sessions",JSON.stringify(updated));
+
+      // Generate diagnostic after session 5
+      if(updated.length===5 && !diagnostic){
+        generateDiagnostic(updated);
+      }
+    }catch(e){
+      setFeedback(`⚠️ Feedback unavailable: ${e.message}\n\nYour session is saved. Keep going.`);
+    }
+    setLoadingFb(false);
+  }
+
+  async function generateDiagnostic(allSessions){
+    const avgScores={opener:0,hedges:0,completion:0,vocabulary:0,commitment:0};
+    allSessions.forEach(s=>Object.keys(avgScores).forEach(k=>avgScores[k]+=s.scores[k]||0));
+    Object.keys(avgScores).forEach(k=>avgScores[k]=Math.round(avgScores[k]/allSessions.length));
+    const weakest=Object.entries(avgScores).sort((a,b)=>a[1]-b[1])[0][0];
+    const strongest=Object.entries(avgScores).sort((a,b)=>b[1]-a[1])[0][0];
+    const level=avgScores.opener+avgScores.hedges+avgScores.completion+avgScores.vocabulary+avgScores.commitment;
+    const levelName=level<50?"Foundational":level<70?"Developing":level<85?"Proficient":"Advanced";
+    const d={avgScores,weakest,strongest,level:levelName,date:new Date().toLocaleDateString("en-CA")};
+    setDiagnostic(d);
+    localStorage.setItem("ce_diagnostic",JSON.stringify(d));
+  }
+
+  // ── WEEKLY ASSESSMENT ──
+  async function runAssessment(){
+    setLoadingAssessment(true); setAssessmentFb("");
+    const responses_text = ASSESSMENT_PROMPTS.map(p=>`[${p.label}]\nPrompt: ${p.prompt}\nResponse: ${assessmentResponses[p.id]||"(blank)"}`).join("\n\n");
+    try{
+      const fb=await callClaude(
+        `You are scoring Stephanie's weekly standardized assessment. She does these SAME 5 prompts every week so results are comparable over time. She is in Week ${week} of The Clarity Edit curriculum.
+
+Score each of the 5 dimensions out of 100 based on ALL her responses together:
+- Opener Strength (0-100)
+- Hedge Count (0-100, higher = fewer hedges)
+- Completion Rate (0-100)
+- Vocabulary Range (0-100)
+- Commitment Score (0-100)
+
+Format EXACTLY:
+WEEKLY SCORES: opener=[score] hedges=[score] completion=[score] vocabulary=[score] commitment=[score]
+
+Then write a 150-word weekly progress report:
+- What improved most since last week?
+- What is still her #1 gap?
+- One specific drill to add to her daily practice next week
+- Where she'll be in 4 weeks if she stays consistent (make it vivid and specific to her life)`,
+        `Week ${week} assessment.\n\n${responses_text}`
+      );
+      setAssessmentFb(fb);
+    }catch(e){setAssessmentFb(`Assessment unavailable: ${e.message}`);}
+    setLoadingAssessment(false);
+  }
+
+  // ── HOME SCREEN ──────────────────────────────────────────────
+  if(screen==="home") return(
+    <div style={{minHeight:"100vh",background:C.cream,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 20px"}}>
+      <div style={{maxWidth:440,width:"100%"}}>
+
+        {/* Brand header */}
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:11,fontWeight:600,color:C.terra,textTransform:"uppercase",letterSpacing:3,marginBottom:8}}>Teacher Mom Edit</div>
+          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:42,fontWeight:700,color:C.char,lineHeight:1.1,marginBottom:8}}>The Clarity Edit</h1>
+          <p style={{color:C.mid,fontSize:14,lineHeight:1.6}}>15 minutes every morning. Your clarity back.</p>
+        </div>
+
+        {/* Week banner */}
+        <div style={{background:C.terra,borderRadius:16,padding:"16px 20px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{color:C.terraXl,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Week {week} — {curriculum.label}</div>
+            <div style={{color:"white",fontSize:15,fontWeight:600,marginTop:2}}>{curriculum.theme}</div>
+            <div style={{color:C.terraLt,fontSize:12,marginTop:2}}>{curriculum.focus}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{color:"white",fontSize:28,fontWeight:800}}>Day {dayInWk}</div>
+            <div style={{color:C.terraLt,fontSize:11}}>of 5</div>
+          </div>
+        </div>
+
+        {/* Identity reminder */}
+        <div style={{background:C.oat,border:`1px solid ${C.terraLt}`,borderRadius:16,padding:"16px 20px",marginBottom:16}}>
+          <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Remember who you are</div>
+          <div style={{color:C.char,fontSize:16,lineHeight:1.7,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>You were confident, clear, and sharp before kids. Motherhood didn't take that. It's still in there. 15 minutes a day is how you find her again.</div>
+        </div>
+
+        {/* Streak + diagnostic */}
+        <div style={{display:"flex",gap:10,marginBottom:16}}>
+          {streak>0&&<div style={{flex:1,background:C.oat,borderRadius:12,padding:"12px",textAlign:"center",border:`1px solid ${C.terraLt}`}}>
+            <div style={{fontSize:20}}>🔥</div>
+            <div style={{color:C.terra,fontSize:16,fontWeight:800}}>{streak}</div>
+            <div style={{color:C.mid,fontSize:10,textTransform:"uppercase",letterSpacing:0.5}}>Day streak</div>
+          </div>}
+          {diagnostic&&<div style={{flex:1,background:C.oat,borderRadius:12,padding:"12px",textAlign:"center",border:`1px solid ${C.sageLt}`}}>
+            <div style={{fontSize:20}}>📊</div>
+            <div style={{color:C.sage,fontSize:16,fontWeight:800}}>{diagnostic.level}</div>
+            <div style={{color:C.mid,fontSize:10,textTransform:"uppercase",letterSpacing:0.5}}>Your level</div>
+          </div>}
+          <div style={{flex:1,background:C.oat,borderRadius:12,padding:"12px",textAlign:"center",border:`1px solid ${C.terraLt}`}}>
+            <div style={{fontSize:20}}>📅</div>
+            <div style={{color:C.terra,fontSize:16,fontWeight:800}}>{sessions.length}</div>
+            <div style={{color:C.mid,fontSize:10,textTransform:"uppercase",letterSpacing:0.5}}>Sessions</div>
+          </div>
+        </div>
+
+        {/* Phase preview */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:8}}>
+          {PHASES.slice(0,4).map(p=>(
+            <div key={p.id} style={{background:C.oat,borderRadius:10,padding:"8px 4px",textAlign:"center",border:`1px solid ${p.color}44`}}>
+              <div style={{fontSize:16}}>{p.icon}</div>
+              <div style={{color:p.color,fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.2}}>{p.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:20}}>
+          {PHASES.slice(4).map(p=>(
+            <div key={p.id} style={{background:C.oat,borderRadius:10,padding:"8px 4px",textAlign:"center",border:`1px solid ${p.color}44`}}>
+              <div style={{fontSize:16}}>{p.icon}</div>
+              <div style={{color:p.color,fontSize:9,fontWeight:700,marginTop:3,lineHeight:1.2}}>{p.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Start button */}
+        {isAssessmentDay
+          ?<button onClick={()=>setShowAssessment(true)} style={{background:C.sage,color:"white",border:"none",borderRadius:16,padding:"17px",fontSize:16,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10}}>
+            📋 Weekly Assessment Day
+          </button>
+          :<button onClick={startSession} style={{background:C.terra,color:"white",border:"none",borderRadius:16,padding:"17px",fontSize:16,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10}}>
+            Start Today's Session
+          </button>
+        }
+
+        {sessions.length>0&&<button onClick={()=>setScreen("dashboard")} style={{background:"transparent",color:C.mid,border:`1px solid ${C.terraLt}`,borderRadius:12,padding:"12px",fontSize:13,fontWeight:600,cursor:"pointer",width:"100%"}}>
+          View My Progress →
+        </button>}
+      </div>
+
+      {/* Weekly Assessment Modal */}
+      {showAssessment&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(58,53,48,0.7)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",overflowY:"auto",zIndex:100}}>
+          <div style={{background:C.cream,borderRadius:24,padding:"24px",maxWidth:440,width:"100%",marginTop:20}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:C.char,marginBottom:4}}>Weekly Assessment</div>
+            <div style={{color:C.mid,fontSize:13,marginBottom:20}}>Same 5 prompts every week. Your progress is measurable.</div>
+            {ASSESSMENT_PROMPTS.map(p=>(
+              <div key={p.id} style={{marginBottom:16}}>
+                <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{p.label}</div>
+                <div style={{color:C.char,fontSize:13,marginBottom:6,lineHeight:1.5}}>{p.prompt}</div>
+                <textarea value={assessmentResponses[p.id]||""} onChange={e=>setAssessmentResponses({...assessmentResponses,[p.id]:e.target.value})}
+                  placeholder="Speak out loud then type what you said..."
+                  style={{width:"100%",minHeight:70,background:C.oat,border:`1px solid ${C.terraLt}`,borderRadius:10,color:C.char,fontSize:13,padding:"12px",resize:"vertical",outline:"none",boxSizing:"border-box",lineHeight:1.5}}/>
+              </div>
+            ))}
+            {assessmentFb&&<div style={{background:C.oat,border:`1px solid ${C.sage}`,borderRadius:12,padding:"16px",marginBottom:16}}>
+              <div style={{color:C.sage,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Your Weekly Report</div>
+              <div style={{color:C.char,fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{assessmentFb}</div>
+            </div>}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setShowAssessment(false)} style={{background:"transparent",color:C.mid,border:`1px solid ${C.terraLt}`,borderRadius:12,padding:"13px",fontSize:13,fontWeight:600,cursor:"pointer",flex:1}}>Close</button>
+              <button onClick={runAssessment} disabled={loadingAssessment} style={{background:C.sage,color:"white",border:"none",borderRadius:12,padding:"13px",fontSize:13,fontWeight:700,cursor:"pointer",flex:2}}>
+                {loadingAssessment?"Scoring...":"Get My Score"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── SESSION SCREEN ───────────────────────────────────────────
+  if(screen==="session"){
+    const isVocab   = currentPhase.type==="vocab";
+    const isEmotion = currentPhase.type==="emotion";
+    const isLesson  = currentPhase.type==="lesson";
+    const prompt    = currentPrompt;
+    const color     = currentPhase.color;
+
+    return(
+      <div style={{minHeight:"100vh",background:C.cream,display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 20px 50px"}}>
+
+        {/* Progress bar */}
+        <div style={{display:"flex",gap:4,marginBottom:20,width:"100%",maxWidth:440}}>
+          {PHASES.map((p,i)=>(
+            <div key={p.id} style={{flex:i===phaseIndex?2:1,height:4,borderRadius:2,transition:"all 0.3s",background:i<phaseIndex?p.color:i===phaseIndex?color:C.oat}}/>
+          ))}
+        </div>
+
+        <div style={{background:"white",borderRadius:24,padding:"24px 20px",maxWidth:440,width:"100%",border:`1px solid ${C.oat}`,boxShadow:"0 2px 16px rgba(58,53,48,0.06)"}}>
+
+          {/* Phase header */}
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <span style={{fontSize:22}}>{currentPhase.icon}</span>
+            <div>
+              <div style={{color,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Phase {phaseIndex+1} of {PHASES.length}</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:700,color:C.char}}>{currentPhase.label}</div>
+            </div>
+            <div style={{marginLeft:"auto",background:C.oat,borderRadius:8,padding:"4px 10px"}}>
+              <div style={{color:C.terra,fontSize:10,fontWeight:700}}>WK {week}</div>
+            </div>
+          </div>
+
+          {/* Instruction */}
+          <p style={{color:C.mid,fontSize:12,fontStyle:"italic",marginBottom:14,lineHeight:1.6,borderLeft:`3px solid ${color}`,paddingLeft:10}}>{currentPhase.instruction}</p>
+
+          {/* LESSON PHASE */}
+          {isLesson&&<>
+            <div style={{background:C.oat,borderRadius:14,padding:"18px",marginBottom:16,border:`1px solid ${C.sageLt}`}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:700,color:C.char,marginBottom:8}}>{prompt?.title}</div>
+              <div style={{color:C.char,fontSize:14,lineHeight:1.8}}>{prompt?.body}</div>
+            </div>
+            <div style={{background:C.terra,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+              <div style={{color:C.terraXl,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Today's Tip</div>
+              <div style={{color:"white",fontSize:13,lineHeight:1.6}}>{prompt?.tip}</div>
+            </div>
+            <button onClick={advancePhase} style={{background:C.terra,color:"white",border:"none",borderRadius:12,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",width:"100%"}}>
+              Got it — let's practice →
+            </button>
+          </>}
+
+          {/* VOCAB PHASE */}
+          {isVocab&&<>
+            <div style={{background:C.oat,borderRadius:14,padding:"18px",marginBottom:12,border:`1px solid ${C.terraLt}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:C.terra,marginBottom:4}}>{prompt?.word}</div>
+                  <div style={{color:C.mid,fontSize:13,marginBottom:8,lineHeight:1.5}}>{prompt?.def}</div>
+                  <div style={{color:C.char,fontSize:12,fontStyle:"italic",borderTop:`1px solid ${C.terraLt}`,paddingTop:8}}>"{prompt?.example}"</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Teach Me */}
+            {!teachMe&&<button onClick={()=>setTeachMe(true)} style={{background:"transparent",color:C.terra,border:`1px solid ${C.terra}`,borderRadius:10,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer",width:"100%",marginBottom:12}}>
+              📖 Teach Me This Word
+            </button>}
+            {teachMe&&<div style={{background:C.terraXl,border:`1px solid ${C.terraLt}`,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+              <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Deep Dive</div>
+              <div style={{color:C.char,fontSize:13,lineHeight:1.7}}>{prompt?.teach}</div>
+            </div>}
+
+            {currentPhase.duration>0&&<div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+              <Timer timeLeft={timeLeft} total={currentPhase.duration} color={color}/>
+            </div>}
+            {!running&&timeLeft===currentPhase.duration&&currentPhase.duration>0&&(
+              <button onClick={()=>setRunning(true)} style={{background:color,color:"white",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10}}>
+                ▶ Start Timer
+              </button>
+            )}
+            <textarea value={response} onChange={e=>setResponse(e.target.value)} placeholder="Use the word in a sentence from your real life..."
+              style={{width:"100%",minHeight:80,background:C.oat,border:`1px solid ${C.terraLt}`,borderRadius:12,color:C.char,fontSize:14,padding:"14px",resize:"vertical",lineHeight:1.6,outline:"none",boxSizing:"border-box"}}/>
+            {!inlineDone&&<button onClick={checkVocab} disabled={loadingInline||!response.trim()} style={{background:loadingInline?C.oat:`${color}22`,color:loadingInline?C.light:color,border:`1px solid ${color}66`,borderRadius:10,padding:"10px",fontSize:13,fontWeight:600,cursor:loadingInline?"default":"pointer",width:"100%",marginTop:8}}>
+              {loadingInline?"Checking...":"✓ Check My Vocab"}
+            </button>}
+            <InlineFb text={inlineFb} color={color}/>
+          </>}
+
+          {/* EMOTION PHASE */}
+          {isEmotion&&<>
+            <div style={{background:C.oat,borderRadius:14,padding:"18px",marginBottom:14,border:`1px solid ${C.gold}55`}}>
+              <div style={{color:C.gold,fontSize:12,fontWeight:700,marginBottom:8}}>The Situation</div>
+              <div style={{color:C.char,fontSize:14,lineHeight:1.6,marginBottom:10}}>{prompt?.s}</div>
+              <div style={{color:C.mid,fontSize:12,borderTop:`1px solid ${C.terraLt}`,paddingTop:8}}>Goal: {prompt?.g}</div>
+            </div>
+            {currentPhase.duration>0&&<div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+              <Timer timeLeft={timeLeft} total={currentPhase.duration} color={color}/>
+            </div>}
+            {!running&&timeLeft===currentPhase.duration&&<button onClick={()=>setRunning(true)} style={{background:color,color:"white",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10}}>
+              ▶ Start Timer
+            </button>}
+            <textarea value={response} onChange={e=>setResponse(e.target.value)} placeholder="Say your response out loud, then type it here..."
+              style={{width:"100%",minHeight:80,background:C.oat,border:`1px solid ${C.gold}55`,borderRadius:12,color:C.char,fontSize:14,padding:"14px",resize:"vertical",lineHeight:1.6,outline:"none",boxSizing:"border-box"}}/>
+            {!inlineDone&&<button onClick={checkEmotion} disabled={loadingInline||!response.trim()} style={{background:loadingInline?C.oat:`${C.gold}22`,color:loadingInline?C.light:C.gold,border:`1px solid ${C.gold}66`,borderRadius:10,padding:"10px",fontSize:13,fontWeight:600,cursor:loadingInline?"default":"pointer",width:"100%",marginTop:8}}>
+              {loadingInline?"Checking...":"✓ Check My Response"}
+            </button>}
+            <InlineFb text={inlineFb} color={C.gold}/>
+          </>}
+
+          {/* STANDARD PROMPT PHASES */}
+          {!isLesson&&!isVocab&&!isEmotion&&<>
+            <div style={{background:C.oat,borderRadius:14,padding:"18px",marginBottom:14,border:`1px solid ${color}44`}}>
+              <div style={{color:C.char,fontSize:14,lineHeight:1.6,fontStyle:"italic"}}>"{prompt}"</div>
+            </div>
+            {currentPhase.duration>0&&<div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+              <Timer timeLeft={timeLeft} total={currentPhase.duration} color={color}/>
+            </div>}
+            {!running&&timeLeft===currentPhase.duration&&<button onClick={()=>setRunning(true)} style={{background:color,color:"white",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer",width:"100%",marginBottom:10}}>
+              ▶ Start Timer
+            </button>}
+            <textarea value={response} onChange={e=>setResponse(e.target.value)} placeholder="Speak out loud then capture what you said..."
+              style={{width:"100%",minHeight:80,background:C.oat,border:`1px solid ${color}44`,borderRadius:12,color:C.char,fontSize:14,padding:"14px",resize:"vertical",lineHeight:1.6,outline:"none",boxSizing:"border-box"}}/>
+          </>}
+
+          {/* Navigation */}
+          {!isLesson&&<div style={{display:"flex",gap:8,marginTop:12}}>
+            <button onClick={()=>{clearInterval(timerRef.current);setRunning(false);setTimeLeft(currentPhase.duration||0);setResponse("");setInlineFb("");setInlineDone(false);setTeachMe(false);setCurrentPrompt(buildPrompt(currentPhase,week));}}
+              style={{background:C.oat,color:C.mid,border:`1px solid ${C.terraLt}`,borderRadius:10,padding:"12px",fontSize:13,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+              ↺ Redo
+            </button>
+            <button onClick={advancePhase} style={{background:phaseIndex===PHASES.length-1?C.sage:C.terra,color:"white",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer",flex:1}}>
+              {phaseIndex===PHASES.length-1?"✓ Finish Session":"Next →"}
+            </button>
+          </div>}
+        </div>
+      </div>
+    );
+  }
+
+  // ── FEEDBACK SCREEN ──────────────────────────────────────────
+  if(screen==="feedback") return(
+    <div style={{minHeight:"100vh",background:C.cream,display:"flex",flexDirection:"column",alignItems:"center",padding:"28px 20px 60px"}}>
+      <div style={{maxWidth:440,width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:36,marginBottom:6}}>✅</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:C.char}}>Session Complete</div>
+          {streak>0&&<div style={{color:C.terra,fontSize:13,fontWeight:600,marginTop:4}}>🔥 {streak}-day streak</div>}
+        </div>
+
+        {/* 5-dimension scores */}
+        <div style={{background:"white",borderRadius:20,padding:"20px",marginBottom:14,border:`1px solid ${C.oat}`,boxShadow:"0 2px 12px rgba(58,53,48,0.05)"}}>
+          <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>Today's Scores</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+            {[
+              {key:"opener",    label:"Opener",     color:C.terra},
+              {key:"hedges",    label:"Hedges",     color:C.sage},
+              {key:"completion",label:"Complete",   color:"#8B7355"},
+              {key:"vocabulary",label:"Vocab",      color:"#5A7A8F"},
+              {key:"commitment",label:"Commit",     color:"#8F5A7A"},
+            ].map(d=>(
+              <Ring key={d.key} score={scores[d.key]||0} color={d.color} label={d.label} size={60}/>
+            ))}
+          </div>
+          <div style={{textAlign:"center",marginTop:12,color:C.terra,fontSize:18,fontWeight:800}}>
+            {Object.values(scores).reduce((a,b)=>a+b,0)}<span style={{color:C.light,fontSize:12,fontWeight:400}}>/100</span>
+          </div>
+        </div>
+
+        {/* Session recap */}
+        <div style={{marginBottom:14}}>
+          {responses.slice(1).map((r,i)=>(
+            <div key={i} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.oat}`}}>
+              <div style={{color:PHASES[i+1]?.color||C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{r.phase.icon} {r.phase.label}</div>
+              <div style={{color:C.mid,fontSize:12,lineHeight:1.5}}>{r.text?`"${r.text.slice(0,100)}${r.text.length>100?"...":""}"` :<span style={{color:C.light,fontStyle:"italic"}}>Nothing entered</span>}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* AI feedback */}
+        <div style={{background:"white",borderRadius:20,padding:"22px",border:`1px solid ${C.oat}`,marginBottom:16,boxShadow:"0 2px 12px rgba(58,53,48,0.05)"}}>
+          <div style={{color:C.terra,fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Your Coach</div>
+          {loadingFb
+            ?<div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{color:C.terra,fontSize:24,marginBottom:8}}>⏳</div>
+              <div style={{color:C.mid,fontSize:13}}>Analyzing your session...</div>
+              <div style={{color:C.light,fontSize:11,marginTop:4}}>About 15 seconds</div>
+            </div>
+            :<div style={{color:C.char,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{feedback}</div>
+          }
+        </div>
+
+        {/* Diagnostic banner */}
+        {isDiagnosticDue&&diagnostic&&<div style={{background:C.sage,borderRadius:16,padding:"16px",marginBottom:16}}>
+          <div style={{color:"white",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Your Diagnostic Result</div>
+          <div style={{color:"white",fontSize:18,fontWeight:800,marginBottom:4}}>Level: {diagnostic.level}</div>
+          <div style={{color:C.sageLt,fontSize:13}}>Your strongest area: {diagnostic.strongest} · Focus area: {diagnostic.weakest}</div>
+        </div>}
+
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setScreen("dashboard")} style={{background:"transparent",color:C.terra,border:`1px solid ${C.terra}`,borderRadius:14,padding:"14px",fontSize:13,fontWeight:600,cursor:"pointer",flex:1}}>
+            📊 Progress
+          </button>
+          <button onClick={()=>setScreen("home")} style={{background:C.terra,color:"white",border:"none",borderRadius:14,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",flex:2}}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── DASHBOARD SCREEN ─────────────────────────────────────────
+  if(screen==="dashboard"){
+    const latest=sessions.length?sessions[sessions.length-1]:null;
+    const DIMS=[
+      {key:"opener",    label:"Opener",     color:C.terra},
+      {key:"hedges",    label:"Hedges",     color:C.sage},
+      {key:"completion",label:"Completion", color:"#8B7355"},
+      {key:"vocabulary",label:"Vocabulary", color:"#5A7A8F"},
+      {key:"commitment",label:"Commitment", color:"#8F5A7A"},
+    ];
+
+    function spark(key,w=90,h=32){
+      const vals=sessions.map(s=>s.scores?.[key]||0);
+      if(vals.length<2) return null;
+      const mn=Math.min(...vals)-2,mx=Math.max(...vals)+2,rng=mx-mn||1;
+      return vals.map((v,i)=>`${(i/(vals.length-1))*w},${h-((v-mn)/rng)*h}`).join(" ");
+    }
+
+    const overallNow=latest?Math.round(Object.values(latest.scores).reduce((a,b)=>a+b,0)/5):0;
+    const first=sessions[0];
+    const overallStart=first?Math.round(Object.values(first.scores).reduce((a,b)=>a+b,0)/5):0;
+
+    return(
+      <div style={{minHeight:"100vh",background:C.cream,paddingBottom:50}}>
+        <div style={{background:"white",padding:"24px 20px 18px",borderBottom:`1px solid ${C.oat}`}}>
+          <div style={{maxWidth:440,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:11,fontWeight:600,color:C.terra,textTransform:"uppercase",letterSpacing:2}}>Teacher Mom Edit</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:C.char,marginTop:2}}>The Clarity Edit</div>
+              <div style={{color:C.mid,fontSize:12,marginTop:2}}>{sessions.length} sessions · {streak>0?`🔥 ${streak}-day streak`:"Start your streak"}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:C.sage,fontSize:28,fontWeight:900}}>+{overallNow-overallStart}</div>
+              <div style={{color:C.light,fontSize:10,textTransform:"uppercase"}}>Overall gain</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{maxWidth:440,margin:"0 auto",padding:"16px 20px"}}>
+
+          {/* Diagnostic */}
+          {diagnostic&&<div style={{background:C.terra,borderRadius:16,padding:"18px",marginBottom:14}}>
+            <div style={{color:C.terraXl,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Your Level</div>
+            <div style={{color:"white",fontSize:22,fontWeight:800,marginBottom:4}}>{diagnostic.level}</div>
+            <div style={{display:"flex",gap:16}}>
+              <div><div style={{color:C.terraLt,fontSize:10,textTransform:"uppercase"}}>Strongest</div><div style={{color:"white",fontSize:12,fontWeight:600}}>{diagnostic.strongest}</div></div>
+              <div><div style={{color:C.terraLt,fontSize:10,textTransform:"uppercase"}}>Focus area</div><div style={{color:"white",fontSize:12,fontWeight:600}}>{diagnostic.weakest}</div></div>
+              <div><div style={{color:C.terraLt,fontSize:10,textTransform:"uppercase"}}>Assessed</div><div style={{color:"white",fontSize:12,fontWeight:600}}>{diagnostic.date}</div></div>
+            </div>
+          </div>}
+
+          {sessions.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.light}}>
+            <div style={{fontSize:36,marginBottom:12}}>📊</div>
+            <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:C.mid}}>No sessions yet</div>
+            <div style={{fontSize:13}}>Complete your first session to see your progress</div>
+          </div>}
+
+          {sessions.length>0&&<>
+            {/* 5-dimension cards */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {DIMS.map(d=>{
+                const now=latest?.scores[d.key]||0;
+                const pts=spark(d.key);
+                const startVal=first?.scores[d.key]||0;
+                return(
+                  <div key={d.key} style={{background:"white",borderRadius:16,padding:"14px",border:`1px solid ${C.oat}`,boxShadow:"0 1px 8px rgba(58,53,48,0.04)"}}>
+                    <div style={{color:d.color,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{d.label}</div>
+                    <div style={{color:C.char,fontSize:26,fontWeight:900,margin:"4px 0 2px"}}>{now}</div>
+                    {pts&&<svg width="100%" height="32" viewBox="0 0 90 32" preserveAspectRatio="none" style={{marginBottom:4}}>
+                      <polyline points={pts} fill="none" stroke={d.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>}
+                    <div style={{color:C.light,fontSize:10}}>started at {startVal} · <span style={{color:now>=startVal?C.sage:C.terra,fontWeight:700}}>{now>=startVal?"+":""}{now-startVal}</span></div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Phrase to own */}
+            {latest?.phraseToOwn&&<div style={{background:"white",border:`1px solid ${C.terraLt}`,borderRadius:16,padding:"18px",marginBottom:14,boxShadow:"0 1px 8px rgba(58,53,48,0.04)"}}>
+              <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>💡 This Week's Phrase to Own</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:C.char,fontStyle:"italic",lineHeight:1.6}}>"{latest.phraseToOwn}"</div>
+              <div style={{color:C.light,fontSize:11,marginTop:8}}>Say this out loud before your next conversation</div>
+            </div>}
+
+            {/* Curriculum progress */}
+            <div style={{background:"white",borderRadius:16,padding:"18px",marginBottom:14,border:`1px solid ${C.oat}`}}>
+              <div style={{color:C.terra,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Curriculum Progress</div>
+              {Object.entries(CURRICULUM).map(([w,c])=>{
+                const wNum=parseInt(w);
+                const done=wNum<week;
+                const current=wNum===week;
+                return(
+                  <div key={w} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:wNum<8?`1px solid ${C.oat}`:"none",opacity:wNum>week?0.4:1}}>
+                    <div style={{width:24,height:24,borderRadius:"50%",background:done?C.sage:current?C.terra:C.oat,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <span style={{color:"white",fontSize:10,fontWeight:700}}>{done?"✓":w}</span>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{color:current?C.terra:done?C.sage:C.mid,fontSize:12,fontWeight:700}}>{c.label}</div>
+                      <div style={{color:C.light,fontSize:11}}>{c.theme}</div>
+                    </div>
+                    {current&&<div style={{color:C.terra,fontSize:10,fontWeight:700,background:C.terraXl,padding:"2px 8px",borderRadius:6}}>Now</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Session history */}
+            <div style={{marginBottom:14}}>
+              <div style={{color:C.mid,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Recent Sessions</div>
+              {[...sessions].reverse().slice(0,8).map((s,i)=>(
+                <div key={s.id} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.oat}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div style={{color:C.char,fontSize:12,fontWeight:700}}>Wk {s.week} · {s.date}</div>
+                    <div style={{display:"flex",gap:8}}>
+                      {DIMS.map(d=>(
+                        <div key={d.key} style={{textAlign:"center"}}>
+                          <div style={{color:d.color,fontSize:11,fontWeight:700}}>{s.scores?.[d.key]||0}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {s.phraseToOwn&&<div style={{color:C.mid,fontSize:11,fontStyle:"italic"}}>💡 "{s.phraseToOwn}"</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Milestones */}
+            <div style={{background:"white",borderRadius:16,padding:"18px",border:`1px solid ${C.oat}`}}>
+              <div style={{color:C.mid,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Milestones</div>
+              {[
+                {label:"First session",           done:sessions.length>=1,  emoji:"🌱"},
+                {label:"5-day streak",             done:streak>=5,           emoji:"🔥"},
+                {label:"Diagnostic complete",      done:!!diagnostic,        emoji:"📋"},
+                {label:"10 sessions",              done:sessions.length>=10, emoji:"📅"},
+                {label:"Any score hits 15",        done:latest&&Object.values(latest.scores).some(v=>v>=15), emoji:"⭐"},
+                {label:"Week 2 started",           done:week>=2,             emoji:"📈"},
+                {label:"All scores above 12",      done:latest&&Object.values(latest.scores).every(v=>v>=12), emoji:"💪"},
+                {label:"30-day streak",            done:streak>=30,          emoji:"🚀"},
+                {label:"Week 8 — Mastery",         done:week>=8,             emoji:"🏅"},
+              ].map((m,i,arr)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:i<arr.length-1?`1px solid ${C.oat}`:"none",opacity:m.done?1:0.35}}>
+                  <div style={{fontSize:16}}>{m.done?m.emoji:"○"}</div>
+                  <div style={{color:m.done?C.char:C.light,fontSize:13,fontWeight:m.done?600:400}}>{m.label}</div>
+                  {m.done&&<div style={{marginLeft:"auto",color:C.sage,fontSize:11,fontWeight:700}}>✓</div>}
+                </div>
+              ))}
+            </div>
+          </>}
+        </div>
+
+        <div style={{maxWidth:440,margin:"0 auto",padding:"0 20px"}}>
+          <button onClick={()=>setScreen("home")} style={{background:C.terra,color:"white",border:"none",borderRadius:14,padding:"15px",fontSize:14,fontWeight:700,cursor:"pointer",width:"100%",marginTop:8}}>
+            ← Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
